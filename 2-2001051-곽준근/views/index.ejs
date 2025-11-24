@@ -1,0 +1,120 @@
+<h2>맛집 게시판 목록</h2>
+
+<!-- 🔹 지도 영역 -->
+<div id="map" style="width:100%; height:300px; margin-bottom:20px; border:1px solid #ddd;"></div>
+
+<!-- 🔹 검색 폼 -->
+<form method="get" class="mb-3">
+  <input type="hidden" name="sort" value="<%= typeof sort!=='undefined' ? sort : 'date' %>">
+  <input type="hidden" name="order" value="<%= typeof order!=='undefined' ? order : 'desc' %>">
+  <div class="input-group">
+    <input type="text" class="form-control" name="q" value="<%= query || '' %>" placeholder="제목 검색">
+    <button class="btn btn-outline-secondary">검색</button>
+  </div>
+</form>
+
+<a href="/write" class="btn btn-primary mb-3">글쓰기</a>
+
+<!-- 🔹 게시글 목록 테이블 -->
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>
+        <a href="<%= '/?sort=title&order=' + ((sort==='title' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          제목 <%= sort==='title' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+      <th style="width:140px;">
+        <a href="<%= '/?sort=rating&order=' + ((sort==='rating' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          평점 <%= sort==='rating' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+      <th style="width:140px;">작성자</th>
+      <th style="width:200px;">
+        <a href="<%= '/?sort=date&order=' + ((sort==='date' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          작성일 <%= sort==='date' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% posts.forEach(post => { %>
+      <tr>
+        <td><a href="/post/<%= post.id %>"><%= post.title %></a></td>
+        <td><%= '★'.repeat(post.rating || 0) %><%= '☆'.repeat(5 - (post.rating || 0)) %></td>
+        <td><%= post.username %></td>
+        <td><%= post.createdAt %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<!-- 🔹 카카오 지도 스크립트 -->
+<script>
+  (function () {
+    var mapContainer = document.getElementById('map');
+    if (!mapContainer) return;
+
+    // 카카오 SDK 로드 확인
+    if (!(window.kakao && kakao.maps)) {
+      console.error('카카오 지도 SDK 로드 실패');
+      mapContainer.innerHTML = '카카오 지도를 불러오지 못했습니다.';
+      return;
+    }
+
+    // 기본 지도 옵션 (초기 중심: 서울)
+    var mapOption = {
+      center: new kakao.maps.LatLng(37.5665, 126.9780),
+      level: 5
+    };
+
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+
+    // 서버에서 넘어온 게시글들 중 위치(lat,lng) 있는 것만 마커로 표시
+    var positions = <%- JSON.stringify(
+      posts
+        .filter(function (post) {
+          return post.lat != null && post.lng != null;
+        })
+        .map(function (post) {
+          return {
+            title: post.title,
+            lat: post.lat,
+            lng: post.lng,
+            url: '/post/' + post.id
+          };
+        })
+    ) %>;
+
+    // 마커 + 인포윈도우 생성
+    positions.forEach(function (pos) {
+      var marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(pos.lat, pos.lng),
+        map: map
+      });
+
+      var iwContent =
+        '<div style="padding:5px;font-size:12px;">'
+        + pos.title
+        + '<br><a href="' + pos.url + '">상세보기</a></div>';
+
+      var infowindow = new kakao.maps.InfoWindow({
+        content: iwContent
+      });
+
+      kakao.maps.event.addListener(marker, 'click', function () {
+        infowindow.open(map, marker);
+      });
+    });
+
+    // 마커가 여러 개면, 범위에 맞게 지도 영역 자동 조정
+    if (positions.length > 0) {
+      var bounds = new kakao.maps.LatLngBounds();
+      positions.forEach(function (pos) {
+        bounds.extend(new kakao.maps.LatLng(pos.lat, pos.lng));
+      });
+      map.setBounds(bounds);
+    }
+  })();
+</script>

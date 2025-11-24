@@ -1,0 +1,7 @@
+<h2>댓글 수정</h2>
+<form method="post" action="/comments/<%= comment.id %>?_method=PUT">
+  <div class="mb-3">
+    <textarea name="content" class="form-control" required><%= comment.content %></textarea>
+  </div>
+  <button class="btn btn-success">수정 완료</button>
+</form>

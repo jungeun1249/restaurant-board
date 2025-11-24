@@ -1,0 +1,111 @@
+<h2>글 수정</h2>
+
+<form method="POST" action="/edit/<%= post.id %>?_method=PUT" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label class="form-label">제목</label>
+    <input type="text" class="form-control" name="title" value="<%= post.title %>" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">내용</label>
+    <textarea class="form-control" name="content" rows="5" required><%= post.content %></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label for="rating" class="form-label">별점</label>
+    <select id="rating" name="rating" class="form-select" required>
+      <option value="" disabled>별점을 선택하세요</option>
+      <% for (let i = 5; i >= 1; i--) { %>
+        <option value="<%= i %>" <%= (post.rating === i ? 'selected' : '') %>>
+          <%= '★'.repeat(i) %><%= '☆'.repeat(5 - i) %> (<%= i %>점)
+        </option>
+      <% } %>
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">위치 선택 (지도를 클릭해서 수정하세요)</label>
+    <div id="editMap" style="width:100%; height:250px; border:1px solid #ccc;"></div>
+
+    <input type="hidden" name="lat" id="lat" value="<%= post.lat || '' %>">
+    <input type="hidden" name="lng" id="lng" value="<%= post.lng || '' %>">
+
+    <small class="text-muted" id="coordText">
+      <% if (post.lat && post.lng) { %>
+        위도, 경도: <%= post.lat %>, <%= post.lng %>
+      <% } else { %>
+        위도, 경도: 선택 안 됨
+      <% } %>
+    </small>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">현재 이미지</label><br>
+    <% if (post.image) { %>
+      <img src="/uploads/<%= post.image %>" alt="현재 이미지" class="img-thumbnail mb-2" style="max-width:200px;">
+    <% } else { %>
+      <span class="text-muted">등록된 이미지 없음</span>
+    <% } %>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">이미지 변경 (선택 사항)</label>
+    <input type="file" class="form-control" name="image" accept="image/*">
+  </div>
+
+  <button type="submit" class="btn btn-primary">수정 완료</button>
+  <a href="/post/<%= post.id %>" class="btn btn-secondary">뒤로가기</a>
+</form>
+
+<script>
+  (function () {
+    var mapContainer = document.getElementById('editMap');
+    if (!mapContainer) return;
+    if (!window.kakao || !kakao.maps) {
+      console.error('카카오 지도 SDK 로드 실패');
+      return;
+    }
+
+    var defaultLat = 37.5665;
+    var defaultLng = 126.9780;
+
+    var latInput = document.getElementById('lat');
+    var lngInput = document.getElementById('lng');
+    var coordText = document.getElementById('coordText');
+
+    var hasLat = latInput.value && !isNaN(parseFloat(latInput.value));
+    var hasLng = lngInput.value && !isNaN(parseFloat(lngInput.value));
+
+    var centerLat = hasLat ? parseFloat(latInput.value) : defaultLat;
+    var centerLng = hasLng ? parseFloat(lngInput.value) : defaultLng;
+
+    var mapOption = {
+      center: new kakao.maps.LatLng(centerLat, centerLng),
+      level: 5
+    };
+
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+
+    var marker = new kakao.maps.Marker();
+    if (hasLat && hasLng) {
+      marker.setPosition(new kakao.maps.LatLng(centerLat, centerLng));
+      marker.setMap(map);
+    }
+
+    kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
+      var latlng = mouseEvent.latLng;
+      var lat = latlng.getLat();
+      var lng = latlng.getLng();
+
+      marker.setPosition(latlng);
+      marker.setMap(map);
+
+      latInput.value = lat;
+      lngInput.value = lng;
+
+      if (coordText) {
+        coordText.innerText = '위도, 경도: ' + lat.toFixed(6) + ', ' + lng.toFixed(6);
+      }
+    });
+  })();
+</script>

@@ -1,0 +1,46 @@
+<h2>맛집 게시판 목록</h2>
+
+<form method="get" class="mb-3">
+  <input type="hidden" name="sort" value="<%= typeof sort!=='undefined' ? sort : 'date' %>">
+  <input type="hidden" name="order" value="<%= typeof order!=='undefined' ? order : 'desc' %>">
+  <div class="input-group">
+    <input type="text" class="form-control" name="q" value="<%= query || '' %>" placeholder="제목 검색">
+    <button class="btn btn-outline-secondary">검색</button>
+  </div>
+</form>
+
+<a href="/write" class="btn btn-primary mb-3">글쓰기</a>
+
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>
+        <a href="<%= '/?sort=title&order=' + ((sort==='title' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          제목 <%= sort==='title' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+      <th style="width:140px;">
+        <a href="<%= '/?sort=rating&order=' + ((sort==='rating' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          평점 <%= sort==='rating' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+      <th style="width:140px;">작성자</th>
+      <th style="width:200px;">
+        <a href="<%= '/?sort=date&order=' + ((sort==='date' && order==='asc') ? 'desc' : 'asc') + (query ? '&q=' + encodeURIComponent(query) : '') %>">
+          작성일 <%= sort==='date' ? (order==='asc' ? '▲' : '▼') : '' %>
+        </a>
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% posts.forEach(post => { %>
+      <tr>
+        <td><a href="/post/<%= post.id %>"><%= post.title %></a></td>
+        <td><%= '★'.repeat(post.rating || 0) %><%= '☆'.repeat(5 - (post.rating || 0)) %></td>
+        <td><%= post.username %></td>
+        <td><%= post.createdAt %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>

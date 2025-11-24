@@ -1,0 +1,28 @@
+<h1>내 정보 수정</h1>
+
+<form action="/profile?_method=PUT" method="POST" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="username" class="form-label">사용자 이름</label>
+    <input type="text" class="form-control" id="username" name="username" value="<%= user.username %>" required>
+  </div>
+  <div class="mb-3">
+    <label for="newPassword" class="form-label">새 비밀번호</label>
+    <input type="password" class="form-control" id="newPassword" name="newPassword">
+    <small class="form-text text-muted">변경하지 않으려면 비워두세요.</small>
+  </div>
+  <div class="mb-3">
+    <label for="profileImage" class="form-label">프로필 사진</label>
+    <input type="file" class="form-control" id="profileImage" name="profileImage">
+    <% if (user.profile_image) { %>
+      <img src="/uploads/<%= user.profile_image %>" alt="프로필" class="mt-2" style="width:80px;">
+    <% } %>
+  </div>
+  <button type="submit" class="btn btn-success">정보 수정</button>
+</form>
+
+<hr>
+
+<h2>회원 탈퇴</h2>
+<form action="/profile?_method=DELETE" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까?');">
+  <button type="submit" class="btn btn-danger">탈퇴하기</button>
+</form>
