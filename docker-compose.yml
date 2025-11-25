@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web:
+    container_name: restaurant-app
+    image: restaurant-board:latest
+    restart: always
+    build:
+      context: .
+    ports:
+      - "3000:3000" 
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./uploads:/usr/src/app/uploads
+    environment:
+      NODE_ENV: production
