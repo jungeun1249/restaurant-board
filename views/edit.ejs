@@ -64,9 +64,7 @@
     const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(lat, lng) });
     marker.setMap(map);
 
-    // ✅ 작성자만 지도 클릭 및 검색 허용
     <% if (session.user && session.user.nickname === post.nickname) { %>
-      // 지도 클릭 시 마커 이동
       kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
         const latlng = mouseEvent.latLng;
         marker.setPosition(latlng);
@@ -74,7 +72,6 @@
         document.getElementById('lng').value = latlng.getLng();
       });
 
-      // 검색 버튼
       document.getElementById('search-btn').addEventListener('click', () => {
         const keyword = document.getElementById('place-input').value.trim();
         if (!keyword) return alert('검색어를 입력해주세요.');

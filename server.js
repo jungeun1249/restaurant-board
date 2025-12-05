@@ -1,7 +1,3 @@
-// ---------------------------
-// 📘 Node.js + MySQL 맛집 게시판 (아이디 고정 + 닉네임 중복 검사 + 검색 오류 수정 완전판)
-// ---------------------------
-
 const express = require('express');
 const session = require('express-session');
 const methodOverride = require('method-override');
@@ -14,45 +10,44 @@ const nodemailer = require('nodemailer');
 const app = express();
 const PORT = 3000;
 
-// ---------------------------
-// 🧱 MySQL 연결
-// ---------------------------
 const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '1234',
-  database: 'restaurant_board',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '1234',
+  database: process.env.DB_NAME || 'restaurant_board',
   waitForConnections: true,
   connectionLimit: 10
 });
 
-// ---------------------------
-// ⚙️ 미들웨어
-// ---------------------------
+const mongoose = require('mongoose');
+
+mongoose.connect('mongodb://localhost:27017/restaurant_board')
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+const activitySchema = new mongoose.Schema({
+  action: String,
+  user: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const Activity = mongoose.model('Activity', activitySchema);
+
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
 
-// ---------------------------
-// 📂 업로드 폴더
-// ---------------------------
 const uploadPath = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
 const upload = multer({ dest: uploadPath });
 
-// ---------------------------
-// 🏠 홈 (로그인 페이지)
-// ---------------------------
 app.get('/', (req, res) => {
   if (req.session.user) return res.redirect('/board');
   res.render('login');
 });
 
-// ---------------------------
-// ✉️ 이메일 인증
-// ---------------------------
 app.post('/send-code', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).send('이메일이 필요합니다.');
@@ -80,9 +75,6 @@ app.post('/send-code', async (req, res) => {
   res.send('ok');
 });
 
-// ---------------------------
-// 👤 회원가입
-// ---------------------------
 app.get('/register', (req, res) => res.render('register'));
 app.post('/register', async (req, res) => {
   const { userid, nickname, password, email, verifyCode } = req.body;
@@ -111,9 +103,6 @@ app.post('/register', async (req, res) => {
   res.send('<script>alert("회원가입이 완료되었습니다!");location.href="/";</script>');
 });
 
-// ---------------------------
-// 🔑 로그인 / 로그아웃
-// ---------------------------
 app.post('/login', async (req, res) => {
   const { userid, password } = req.body;
   const [rows] = await db.query('SELECT * FROM users WHERE userid=? AND password=?', [userid, password]);
@@ -130,9 +119,6 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-// ---------------------------
-// 🔐 비밀번호 찾기
-// ---------------------------
 app.get('/forgot-password', (req, res) => res.render('forgot-password'));
 
 app.post('/forgot-password/send', async (req, res) => {
@@ -179,9 +165,6 @@ app.post('/reset-password', async (req, res) => {
   res.send('<script>alert("비밀번호가 성공적으로 변경되었습니다.");location.href="/";</script>');
 });
 
-// ---------------------------
-// 📧 아이디 찾기
-// ---------------------------
 app.get('/find-id', (req, res) => res.render('find-id'));
 
 app.post('/find-id/send', async (req, res) => {
@@ -212,9 +195,6 @@ app.post('/find-id/send', async (req, res) => {
   res.send('<script>alert("아이디가 이메일로 전송되었습니다.");location.href="/";</script>');
 });
 
-// ---------------------------
-// 📋 게시판 (검색 오류 해결 버전)
-// ---------------------------
 app.get('/board', async (req, res) => {
   if (!req.session.user) return res.redirect('/');
 
@@ -237,12 +217,11 @@ app.get('/board', async (req, res) => {
     posts,
     sort,
     order: order.toLowerCase(),
-    query, // ✅ 오류 해결
+    query,
     session: req.session
   });
 });
 
-// ✏️ 글쓰기
 app.get('/write', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   res.render('write');
@@ -258,29 +237,27 @@ app.post('/write', upload.single('image'), async (req, res) => {
     return res.send('<script>alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");location.href="/";</script>');
   }
 
-  // ✅ nickname과 username 모두 저장
   await db.query(
     'INSERT INTO posts (title, content, rating, lat, lng, image, nickname, username, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-    [title, content, rating, lat, lng, image, nickname, nickname] // ✅ nickname 값을 username에도 저장
+    [title, content, rating, lat, lng, image, nickname, nickname]
   );
+
+  await Activity.create({ action: '게시글 작성', user: nickname });
 
   res.redirect('/board');
 });
 
 
-// 📖 글 상세보기
 app.get('/post/:id', async (req, res) => {
   try {
     const postId = parseInt(req.params.id);
 
-    // ✅ posts에서 게시글 불러오기
     const [rows] = await db.query('SELECT * FROM posts WHERE id = ?', [postId]);
 
     if (rows.length === 0) {
       return res.send('<script>alert("존재하지 않는 게시글입니다.");location.href="/board";</script>');
     }
 
-    // ✅ comments에서 해당 게시글의 댓글 불러오기
     const [comments] = await db.query('SELECT * FROM comments WHERE postId = ? ORDER BY createdAt DESC', [postId]);
 
     res.render('post', { post: rows[0], comments, session: req.session });
@@ -292,7 +269,6 @@ app.get('/post/:id', async (req, res) => {
 });
 
 
-// 💬 댓글 등록
 app.post('/post/:id/comment', async (req, res) => {
   try {
     const postId = parseInt(req.params.id);
@@ -303,7 +279,7 @@ app.post('/post/:id/comment', async (req, res) => {
       'INSERT INTO comments (postId, nickname, content, createdAt) VALUES (?, ?, ?, NOW())',
       [postId, nickname, content]
     );
-
+    await Activity.create({ action: '댓글 작성', user: nickname });
     res.redirect(`/post/${postId}`);
   } catch (err) {
     console.error(err);
@@ -311,20 +287,17 @@ app.post('/post/:id/comment', async (req, res) => {
   }
 });
 
-// ✏️ 댓글 수정 페이지
 app.get('/comment/:id/edit', async (req, res) => {
   const [rows] = await db.query('SELECT * FROM comments WHERE id=?', [req.params.id]);
   if (rows.length === 0)
     return res.send('<script>alert("존재하지 않는 댓글입니다.");history.back();</script>');
 
-  // 작성자 본인 확인
   if (rows[0].nickname !== req.session.user.nickname)
     return res.send('<script>alert("본인 댓글만 수정할 수 있습니다.");history.back();</script>');
 
   res.render('edit-comment', { comment: rows[0], session: req.session });
 });
 
-// ✏️ 댓글 수정 처리
 app.post('/comment/:id', async (req, res) => {
   const { content } = req.body;
   const id = req.params.id;
@@ -339,7 +312,6 @@ app.post('/comment/:id', async (req, res) => {
   res.redirect(`/post/${rows[0].postId}`);
 });
 
-// 🗑️ 댓글 삭제
 app.post('/comment/:id/delete', async (req, res) => {
   const [rows] = await db.query('SELECT * FROM comments WHERE id=?', [req.params.id]);
   if (rows.length === 0)
@@ -351,12 +323,10 @@ app.post('/comment/:id/delete', async (req, res) => {
   res.redirect(`/post/${rows[0].postId}`);
 });
 
-// ✏️ 글 수정 페이지
 app.get('/edit/:id', async (req, res) => {
   const [rows] = await db.query('SELECT * FROM posts WHERE id=?', [req.params.id]);
   if (rows.length === 0) return res.send('<script>alert("게시글이 없습니다.");location.href="/board";</script>');
 
-  // 작성자만 수정 가능
   if (rows[0].nickname !== req.session.user.nickname) {
     return res.send('<script>alert("본인 게시글만 수정할 수 있습니다.");location.href="/board";</script>');
   }
@@ -364,7 +334,6 @@ app.get('/edit/:id', async (req, res) => {
   res.render('edit', { post: rows[0], session: req.session });
 });
 
-// ✏️ 글 수정 처리
 app.post('/edit/:id', upload.single('image'), async (req, res) => {
   const { title, content, rating, lat, lng } = req.body;
   const image = req.file ? req.file.filename : req.body.existingImage;
@@ -384,7 +353,6 @@ app.post('/edit/:id', upload.single('image'), async (req, res) => {
   res.redirect(`/post/${postId}`);
 });
 
-// 🗑️ 글 삭제
 app.post('/delete/:id', async (req, res) => {
   const [rows] = await db.query('SELECT * FROM posts WHERE id=?', [req.params.id]);
   if (rows.length === 0) return res.send('<script>alert("게시글이 없습니다.");location.href="/board";</script>');
@@ -396,9 +364,6 @@ app.post('/delete/:id', async (req, res) => {
   res.redirect('/board');
 });
 
-// ---------------------------
-// ⚙️ 프로필 관리 (닉네임/비번/이미지 변경 + 탈퇴)
-// ---------------------------
 app.get('/profile', (req, res) => {
   if (!req.session.user) return res.redirect('/');
   res.render('profile', { user: req.session.user });
@@ -439,7 +404,4 @@ app.delete('/profile', async (req, res) => {
   res.redirect('/');
 });
 
-// ---------------------------
-// 🚀 서버 실행
-// ---------------------------
 app.listen(PORT, () => console.log(`✅ Full Server running at http://localhost:${PORT}`));

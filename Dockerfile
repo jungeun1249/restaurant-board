@@ -1,19 +1,13 @@
-FROM node:20-slim
+FROM node:18
 
-RUN apt-get update && \ 
-    apt-get install -y build-essential python3 git && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY package*.json ./
 
-RUN rm -rf node_modules
-
-RUN npm install --omit=dev
+RUN npm install
 
 COPY . .
 
 EXPOSE 3000
 
-CMD [ "npm", "start" ]
+CMD ["node", "server.js"]
